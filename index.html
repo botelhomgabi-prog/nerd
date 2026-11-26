@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Coração Matrix Nerd</title>
   <style>
+    * {
+      box-sizing: border-box;
+    }
+
     body {
       margin: 0;
       background: #000;
@@ -13,7 +17,7 @@
       justify-content: center;
       align-items: center;
       height: 100vh;
-      font-family: 'Courier New', monospace;
+      font-family: 'Courier New', Courier, monospace;
     }
 
     canvas {
@@ -30,8 +34,8 @@
     }
 
     pre {
+      margin: 0;
       color: #00ff41;
-      /* Aumenta o tamanho da letra e o espaçamento */
       font-size: clamp(12px, 2.5vw, 22px);
       letter-spacing: 3px;
       line-height: 1.25;
@@ -50,25 +54,28 @@
 </head>
 <body>
   <canvas id="matrix"></canvas>
-  <div class="cena">
-    <pre id="coracao"></pre>
-  </div>
+  
+  <main class="cena">
+    <pre id="coracao" aria-label="Coração formado pela palavra nerd"></pre>
+  </main>
 
   <script>
-    // Desenha o coração com "nerd" em loop contínuo
-    const palavra = "nerd "; // O espaço extra separa as palavras
+    // 1. Animação do Coração em Loop
+    const elementoCoracao = document.getElementById("coracao");
+    const palavra = "nerd ";
     let offset = 0;
 
     function animarCoracao() {
       let indice = offset;
       let resultado = [];
 
-      // Grade reduzida (de 11 a -11 e -22 a 22) para o coração caber na tela com letras maiores
       for (let y = 11; y > -11; y--) {
         let linha = "";
         for (let x = -22; x < 22; x++) {
-          let formula = Math.pow(Math.pow(x * 0.068, 2) + Math.pow(y * 0.135, 2) - 1, 3) 
-                      - Math.pow(x * 0.068, 2) * Math.pow(y * 0.135, 3);
+          const xNorm = x * 0.068;
+          const yNorm = y * 0.135;
+          const formula = Math.pow(Math.pow(xNorm, 2) + Math.pow(yNorm, 2) - 1, 3) 
+                        - Math.pow(xNorm, 2) * Math.pow(yNorm, 3);
           
           if (formula <= 0) {
             linha += palavra[indice % palavra.length];
@@ -80,38 +87,36 @@
         resultado.push(linha);
       }
 
-      document.getElementById("coracao").textContent = resultado.join("\n");
-      
-      // Faz a palavra "andar" dentro do coração em loop
+      elementoCoracao.textContent = resultado.join("\n");
       offset = (offset + 1) % palavra.length;
     }
 
-    // Atualiza o texto a cada 180ms para criar o loop de movimento
     setInterval(animarCoracao, 180);
     animarCoracao();
 
-    // Efeito de chuva Matrix no fundo
+    // 2. Efeito de chuva Matrix no fundo
     const canvas = document.getElementById("matrix");
     const ctx = canvas.getContext("2d");
+    const letras = "NERD010101";
+    const tamanhoFonte = 16;
+    let gotas = [];
 
     function ajustarCanvas() {
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
+      const colunas = Math.floor(canvas.width / tamanhoFonte);
+      gotas = Array(colunas).fill(1);
     }
+
     ajustarCanvas();
     window.addEventListener("resize", ajustarCanvas);
-
-    const letras = "NERD010101";
-    const tamanhoFonte = 16;
-    const colunas = Math.floor(canvas.width / tamanhoFonte);
-    const gotas = Array(colunas).fill(1);
 
     function desenharMatrix() {
       ctx.fillStyle = "rgba(0, 0, 0, 0.07)";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       ctx.fillStyle = "#003b00";
-      ctx.font = tamanhoFonte + "px monospace";
+      ctx.font = `${tamanhoFonte}px monospace`;
 
       for (let i = 0; i < gotas.length; i++) {
         const texto = letras[Math.floor(Math.random() * letras.length)];
