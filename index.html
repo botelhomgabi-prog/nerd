@@ -1,135 +1,143 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Coração Matrix Nerd</title>
-  <style>
-    * {
-      box-sizing: border-box;
-    }
+import math
+import os
+import re
+import time
 
-    body {
-      margin: 0;
-      background: #000;
-      overflow: hidden;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      font-family: 'Courier New', Courier, monospace;
-    }
+# Cores ANSI (Estética Cyberpunk: Ciano, Magenta, Verde Neon, Roxo e Cinza escuro)
+CIANO = '\033[38;5;51m'
+MAGENTA = '\033[38;5;201m'
+VERDE_NEON = '\033[38;5;46m'
+ROXO = '\033[38;5;93m'
+DIM = '\033[38;5;238m'
+RESET = '\033[0m'
+OCULTAR_CURSOR = '\033[?25l'
+MOSTRAR_CURSOR = '\033[?25h'
 
-    canvas {
-      position: fixed;
-      top: 0;
-      left: 0;
-      z-index: 1;
-    }
+ANSI_RE = re.compile(r'\x1b\[[0-9;]*m')
 
-    .cena {
-      position: relative;
-      z-index: 2;
-      perspective: 900px;
-    }
+PALAVRA = "nerd"
+ESPACO = "   "  # Espaçamento entre uma palavra e outra para facilitar a leitura
+SEQUENCIA = PALAVRA + ESPACO
 
-    pre {
-      margin: 0;
-      color: #00ff41;
-      font-size: clamp(12px, 2.5vw, 22px);
-      letter-spacing: 3px;
-      line-height: 1.25;
-      font-weight: bold;
-      text-shadow: 0 0 8px #00ff41, 0 0 18px #008f11;
-      user-select: none;
-      animation: girar 6s linear infinite;
-      transform-style: preserve-3d;
-    }
+LARGURA, ALTURA = 74, 30
+angulo = 0.0
+pulso = 0.0
 
-    @keyframes girar {
-      0% { transform: rotateY(0deg); }
-      100% { transform: rotateY(360deg); }
-    }
-  </style>
-</head>
-<body>
-  <canvas id="matrix"></canvas>
-  
-  <main class="cena">
-    <pre id="coracao" aria-label="Coração formado pela palavra nerd"></pre>
-  </main>
 
-  <script>
-    // 1. Animação do Coração em Loop
-    const elementoCoracao = document.getElementById("coracao");
-    const palavra = "nerd ";
-    let offset = 0;
+def tamanho_visivel(texto: str) -> int:
+    return len(ANSI_RE.sub('', texto))
 
-    function animarCoracao() {
-      let indice = offset;
-      let resultado = [];
 
-      for (let y = 11; y > -11; y--) {
-        let linha = "";
-        for (let x = -22; x < 22; x++) {
-          const xNorm = x * 0.068;
-          const yNorm = y * 0.135;
-          const formula = Math.pow(Math.pow(xNorm, 2) + Math.pow(yNorm, 2) - 1, 3) 
-                        - Math.pow(xNorm, 2) * Math.pow(yNorm, 3);
-          
-          if (formula <= 0) {
-            linha += palavra[indice % palavra.length];
-            indice++;
-          } else {
-            linha += " ";
-          }
-        }
-        resultado.push(linha);
-      }
+def dentro_do_coracao(nx: float, ny: float) -> bool:
+    """Testa se o ponto normalizado (nx, ny) está dentro da curva implícita do coração."""
+    parte_x = nx * nx
+    parte_y = ny * ny
+    return ((parte_x + parte_y - 1.0) ** 3) - (parte_x * (ny ** 3)) <= 0.0
 
-      elementoCoracao.textContent = resultado.join("\n");
-      offset = (offset + 1) % palavra.length;
-    }
 
-    setInterval(animarCoracao, 180);
-    animarCoracao();
+def coord_x(col: int, escala_pulso: float, fator_3d: float) -> float:
+    nx_base = ((col - LARGURA / 2.0) / (LARGURA * 0.22)) / escala_pulso
+    return nx_base / fator_3d
 
-    // 2. Efeito de chuva Matrix no fundo
-    const canvas = document.getElementById("matrix");
-    const ctx = canvas.getContext("2d");
-    const letras = "NERD010101";
-    const tamanhoFonte = 16;
-    let gotas = [];
 
-    function ajustarCanvas() {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-      const colunas = Math.floor(canvas.width / tamanhoFonte);
-      gotas = Array(colunas).fill(1);
-    }
+def coord_y(lin: int, escala_pulso: float) -> float:
+    return ((ALTURA / 2.0 - lin) / (ALTURA * 0.36)) / escala_pulso
 
-    ajustarCanvas();
-    window.addEventListener("resize", ajustarCanvas);
 
-    function desenharMatrix() {
-      ctx.fillStyle = "rgba(0, 0, 0, 0.07)";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+os.system('')
+os.system('cls' if os.name == 'nt' else 'clear')
+print(OCULTAR_CURSOR, end='')
 
-      ctx.fillStyle = "#003b00";
-      ctx.font = `${tamanhoFonte}px monospace`;
+try:
+    while True:
+        print('\033[H', end='')
 
-      for (let i = 0; i < gotas.length; i++) {
-        const texto = letras[Math.floor(Math.random() * letras.length)];
-        ctx.fillText(texto, i * tamanhoFonte, gotas[i] * tamanhoFonte);
+        grid_char = [[' ' for _ in range(LARGURA)] for _ in range(ALTURA)]
+        grid_cor = [[RESET for _ in range(LARGURA)] for _ in range(ALTURA)]
 
-        if (gotas[i] * tamanhoFonte > canvas.height && Math.random() > 0.975) {
-          gotas[i] = 0;
-        }
-        gotas[i]++;
-      }
-    }
+        cos_a = math.cos(angulo)
+        fator_3d = cos_a if abs(cos_a) > 0.28 else (0.28 if cos_a >= 0 else -0.28)
+        escala_pulso = 1.0 + 0.05 * math.sin(pulso)
 
-    setInterval(desenharMatrix, 45);
-  </script>
-</body>
-</html>
+        for lin in range(ALTURA):
+            ny = coord_y(lin, escala_pulso)
+            deslocamento = int((angulo * 6) + (lin * 1.5))
+
+            for col in range(LARGURA):
+                nx = coord_x(col, escala_pulso, fator_3d)
+
+                if dentro_do_coracao(nx, ny):
+                    borda_esq = col > 0 and not dentro_do_coracao(
+                        coord_x(col - 1, escala_pulso, fator_3d), ny
+                    )
+                    borda_dir = col < LARGURA - 1 and not dentro_do_coracao(
+                        coord_x(col + 1, escala_pulso, fator_3d), ny
+                    )
+                    borda_cima = lin > 0 and not dentro_do_coracao(
+                        nx, coord_y(lin - 1, escala_pulso)
+                    )
+                    borda_baixo = lin < ALTURA - 1 and not dentro_do_coracao(
+                        nx, coord_y(lin + 1, escala_pulso)
+                    )
+
+                    eh_borda = borda_esq or borda_dir or borda_cima or borda_baixo
+
+                    idx_seq = (col + deslocamento) % len(SEQUENCIA)
+                    char_atual = SEQUENCIA[idx_seq]
+
+                    if eh_borda:
+                        cor_atual = CIANO
+                    elif (lin + col) % 7 == 0:
+                        cor_atual = MAGENTA
+                    else:
+                        cor_atual = VERDE_NEON
+
+                    grid_char[lin][col] = char_atual
+                    grid_cor[lin][col] = cor_atual
+                elif lin % 6 == 0 and col % 12 == 0:
+                    grid_char[lin][col] = '·'
+                    grid_cor[lin][col] = DIM
+
+        largura_interna = LARGURA + 1
+        topo = f"{ROXO}╔{'═' * (LARGURA + 2)}╗{RESET}"
+
+        conteudo_titulo = f" {CIANO}CYBERNETIC HEART // MODE: {VERDE_NEON}{PALAVRA.upper()}_LOOP{RESET}"
+        espacos_dir = max(0, largura_interna - tamanho_visivel(conteudo_titulo))
+        titulo = f"{ROXO}║{RESET}{conteudo_titulo}{' ' * espacos_dir} {ROXO}║{RESET}"
+
+        separador = f"{ROXO}╠{'─' * (LARGURA + 2)}╣{RESET}"
+        linhas_renderizadas = [topo, titulo, separador]
+
+        for lin in range(ALTURA):
+            linha_str = f"{ROXO}║{RESET} "
+            cor_anterior = None
+            for col in range(LARGURA):
+                c = grid_char[lin][col]
+                cor = grid_cor[lin][col]
+                if cor != cor_anterior:
+                    linha_str += cor
+                    cor_anterior = cor
+                linha_str += c
+            linha_str += f"{RESET} {ROXO}║{RESET}"
+            linhas_renderizadas.append(linha_str)
+
+        rodape = f"{ROXO}╚{'═' * (LARGURA + 2)}╝{RESET}"
+        graus = int(math.degrees(angulo) % 360)
+        base_info = (
+            f"{DIM} [CTRL+C] Encerrar  |  Rotação: {graus:03d}°  |  "
+            f"Espaço: {len(ESPACO)} cols{RESET}"
+        )
+
+        linhas_renderizadas.append(rodape)
+        linhas_renderizadas.append(base_info)
+
+        print('\n'.join(linhas_renderizadas))
+
+        angulo += 0.10
+        pulso += 0.18
+        time.sleep(0.08)
+
+except KeyboardInterrupt:
+    print(f"\n{RESET}Animação encerrada!")
+finally:
+    print(f"{MOSTRAR_CURSOR}{RESET}", end='')
