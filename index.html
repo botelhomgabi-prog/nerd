@@ -12,7 +12,7 @@
     body {
       margin: 0;
       min-height: 100vh;
-      background: radial-gradient(circle at center, #001404 0%, #000000 85%);
+      background: #000000;
       display: flex;
       justify-content: center;
       align-items: center;
@@ -30,9 +30,9 @@
     }
 
     .terminal-box {
-      border: 2px solid #008f11;
-      box-shadow: 0 0 18px rgba(0, 255, 65, 0.25), inset 0 0 18px rgba(0, 143, 17, 0.15);
-      background: rgba(0, 6, 2, 0.94);
+      border: 1px solid #008f11;
+      box-shadow: 0 0 16px rgba(0, 255, 65, 0.2), inset 0 0 16px rgba(0, 143, 17, 0.12);
+      background: #010602;
       border-radius: 4px;
       overflow: hidden;
     }
@@ -49,14 +49,14 @@
       gap: 12px;
     }
 
-    .txt-borda {
-      color: #a8ffbe;
-      text-shadow: 0 0 10px rgba(0, 255, 65, 0.9);
+    .txt-brilho {
+      color: #b8ffca;
+      text-shadow: 0 0 10px #00ff41, 0 0 18px #00ff41;
     }
 
     .txt-verde {
       color: #00ff41;
-      text-shadow: 0 0 8px rgba(0, 255, 65, 0.7);
+      text-shadow: 0 0 8px rgba(0, 255, 65, 0.75);
     }
 
     .txt-escuro {
@@ -65,7 +65,7 @@
     }
 
     .txt-dim {
-      color: #0d2b12;
+      color: #08240c;
     }
 
     pre#tela {
@@ -93,14 +93,14 @@
   <main class="hud-wrapper">
     <div class="terminal-box">
       <header class="terminal-header">
-        <span><span class="txt-escuro">MATRIX_CORE // MODE:</span> <span class="txt-verde">NERD_LOOP</span></span>
-        <span class="txt-borda">[STATIC_FLOW]</span>
+        <span><span class="txt-escuro">MATRIX_CORE //</span> <span class="txt-verde">NERD_LOOP</span></span>
+        <span class="txt-brilho">[FIXED_SHAPE]</span>
       </header>
-      <pre id="tela" aria-label="Coração Matrix parado com a palavra nerd em movimento contínuo"></pre>
+      <pre id="tela" aria-label="Coração fixo em verde Matrix com a palavra nerd em loop"></pre>
     </div>
     <footer class="status-bar" id="status">
       <span>[MATRIX_TERMINAL]</span>
-      <span>Fluxo: 000 | Espaço: 3 cols</span>
+      <span>Loop: 000 | Espaço: 3 cols</span>
     </footer>
   </main>
 
@@ -109,7 +109,7 @@
     const statusEl = document.getElementById("status");
 
     const PALAVRA = "nerd";
-    const ESPACO = "   "; // Espaçamento de 3 colunas entre as palavras
+    const ESPACO = "   ";
     const SEQUENCIA = PALAVRA + ESPACO;
     const TAM_SEQ = SEQUENCIA.length;
 
@@ -120,9 +120,9 @@
     const ESCALA_X = LARGURA * 0.22;
     const ESCALA_Y = ALTURA * 0.36;
 
-    let passoFluxo = 0;
+    let passoLoop = 0;
     let ultimoFrame = 0;
-    const INTERVALO_MS = 85;
+    const INTERVALO_MS = 90;
 
     function dentroDoCoracao(nx, ny) {
       const px = nx * nx;
@@ -131,18 +131,14 @@
       return (termo * termo * termo) - (px * ny * ny * ny) <= 0.0;
     }
 
-    function coordX(col) {
-      return (col - MEIA_LARGURA) / ESCALA_X;
-    }
-
-    function coordY(lin) {
-      return (MEIA_ALTURA - lin) / ESCALA_Y;
-    }
-
-    // Pré-calcula a forma fixa do coração (como ele fica parado, não precisa recalcular a cada quadro)
-    const mapaCoracao = Array.from({ length: ALTURA }, (_, lin) =>
-      Array.from({ length: LARGURA }, (_, col) => dentroDoCoracao(coordX(col), coordY(lin)))
-    );
+    // Coração 100% fixo (sem rotação e sem pulsar)
+    const mapaCoracao = Array.from({ length: ALTURA }, (_, lin) => {
+      const ny = (MEIA_ALTURA - lin) / ESCALA_Y;
+      return Array.from({ length: LARGURA }, (_, col) => {
+        const nx = (col - MEIA_LARGURA) / ESCALA_X;
+        return dentroDoCoracao(nx, ny);
+      });
+    });
 
     const mapaBorda = Array.from({ length: ALTURA }, (_, lin) =>
       Array.from({ length: LARGURA }, (_, col) => {
@@ -164,8 +160,8 @@
       const linhasHtml = new Array(ALTURA);
 
       for (let lin = 0; lin < ALTURA; lin++) {
-        // Desloca a palavra "nerd" continuamente através do coração parado
-        const deslocamento = passoFluxo + Math.floor(lin * 1.5);
+        // Apenas a palavra "nerd" anda em loop contínuo dentro do coração fixo
+        const deslocamento = passoLoop + lin;
 
         let linhaStr = "";
         let classeAtual = "";
@@ -175,12 +171,12 @@
           let classe = "";
 
           if (mapaCoracao[lin][col]) {
-            const idxSeq = (((col + deslocamento) % TAM_SEQ) + TAM_SEQ) % TAM_SEQ;
+            const idxSeq = (((col - deslocamento) % TAM_SEQ) + TAM_SEQ) % TAM_SEQ;
             char = SEQUENCIA[idxSeq];
 
             if (mapaBorda[lin][col]) {
-              classe = "txt-borda";
-            } else if ((lin + col + passoFluxo) % 7 === 0) {
+              classe = "txt-brilho";
+            } else if ((lin + col) % 6 === 0) {
               classe = "txt-escuro";
             } else {
               classe = "txt-verde";
@@ -205,10 +201,10 @@
 
       telaEl.innerHTML = linhasHtml.join("\n");
 
-      const contador = String(passoFluxo % 1000).padStart(3, "0");
-      statusEl.lastElementChild.textContent = `Fluxo: ${contador} | Espaço: ${ESPACO.length} cols`;
+      const contador = String(passoLoop % 1000).padStart(3, "0");
+      statusEl.lastElementChild.textContent = `Loop: ${contador} | Espaço: ${ESPACO.length} cols`;
 
-      passoFluxo += 1;
+      passoLoop += 1;
     }
 
     requestAnimationFrame(renderizar);
