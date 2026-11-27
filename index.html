@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Cybernetic Heart // NERD_LOOP</title>
+  <title>Matrix Heart // NERD_LOOP</title>
   <style>
     * {
       box-sizing: border-box;
@@ -12,7 +12,7 @@
     body {
       margin: 0;
       min-height: 100vh;
-      background: radial-gradient(circle at center, #090314 0%, #000000 85%);
+      background: radial-gradient(circle at center, #001404 0%, #000000 85%);
       display: flex;
       justify-content: center;
       align-items: center;
@@ -30,16 +30,16 @@
     }
 
     .terminal-box {
-      border: 2px solid #8a2be2;
-      box-shadow: 0 0 18px rgba(138, 43, 226, 0.35), inset 0 0 18px rgba(138, 43, 226, 0.15);
-      background: rgba(4, 2, 10, 0.94);
+      border: 2px solid #008f11;
+      box-shadow: 0 0 18px rgba(0, 255, 65, 0.25), inset 0 0 18px rgba(0, 143, 17, 0.15);
+      background: rgba(0, 6, 2, 0.94);
       border-radius: 4px;
       overflow: hidden;
     }
 
     .terminal-header {
       padding: 8px 12px;
-      border-bottom: 1px solid #8a2be2;
+      border-bottom: 1px solid #008f11;
       font-size: clamp(10px, 2vw, 15px);
       font-weight: bold;
       letter-spacing: 1px;
@@ -49,23 +49,23 @@
       gap: 12px;
     }
 
-    .txt-ciano {
-      color: #00ffff;
-      text-shadow: 0 0 8px rgba(0, 255, 255, 0.7);
+    .txt-borda {
+      color: #a8ffbe;
+      text-shadow: 0 0 10px rgba(0, 255, 65, 0.9);
     }
 
     .txt-verde {
       color: #00ff41;
-      text-shadow: 0 0 8px rgba(0, 255, 65, 0.75);
+      text-shadow: 0 0 8px rgba(0, 255, 65, 0.7);
     }
 
-    .txt-magenta {
-      color: #ff00cc;
-      text-shadow: 0 0 8px rgba(255, 0, 204, 0.75);
+    .txt-escuro {
+      color: #008f11;
+      text-shadow: 0 0 4px rgba(0, 143, 17, 0.5);
     }
 
     .txt-dim {
-      color: #3a3a4a;
+      color: #0d2b12;
     }
 
     pre#tela {
@@ -82,7 +82,7 @@
     .status-bar {
       margin-top: 8px;
       font-size: clamp(10px, 1.5vw, 13px);
-      color: #6b6b80;
+      color: #006614;
       letter-spacing: 0.5px;
       display: flex;
       justify-content: space-between;
@@ -93,14 +93,14 @@
   <main class="hud-wrapper">
     <div class="terminal-box">
       <header class="terminal-header">
-        <span><span class="txt-ciano">CYBERNETIC HEART // MODE:</span> <span class="txt-verde">NERD_LOOP</span></span>
-        <span class="txt-magenta">[ONLINE]</span>
+        <span><span class="txt-escuro">MATRIX_CORE // MODE:</span> <span class="txt-verde">NERD_LOOP</span></span>
+        <span class="txt-borda">[STATIC_FLOW]</span>
       </header>
-      <pre id="tela" aria-label="Coração cyberpunk formado pela palavra nerd"></pre>
+      <pre id="tela" aria-label="Coração Matrix parado com a palavra nerd em movimento contínuo"></pre>
     </div>
     <footer class="status-bar" id="status">
-      <span>[CYBER_TERMINAL]</span>
-      <span>Rotação: 000° | Espaço: 3 cols</span>
+      <span>[MATRIX_TERMINAL]</span>
+      <span>Fluxo: 000 | Espaço: 3 cols</span>
     </footer>
   </main>
 
@@ -120,10 +120,9 @@
     const ESCALA_X = LARGURA * 0.22;
     const ESCALA_Y = ALTURA * 0.36;
 
-    let angulo = 0.0;
-    let pulso = 0.0;
+    let passoFluxo = 0;
     let ultimoFrame = 0;
-    const INTERVALO_MS = 80; // Mesmo tempo (0.08s) do código Python
+    const INTERVALO_MS = 85;
 
     function dentroDoCoracao(nx, ny) {
       const px = nx * nx;
@@ -132,13 +131,29 @@
       return (termo * termo * termo) - (px * ny * ny * ny) <= 0.0;
     }
 
-    function coordX(col, escalaPulso, fator3D) {
-      return ((col - MEIA_LARGURA) / ESCALA_X) / (escalaPulso * fator3D);
+    function coordX(col) {
+      return (col - MEIA_LARGURA) / ESCALA_X;
     }
 
-    function coordY(lin, escalaPulso) {
-      return ((MEIA_ALTURA - lin) / ESCALA_Y) / escalaPulso;
+    function coordY(lin) {
+      return (MEIA_ALTURA - lin) / ESCALA_Y;
     }
+
+    // Pré-calcula a forma fixa do coração (como ele fica parado, não precisa recalcular a cada quadro)
+    const mapaCoracao = Array.from({ length: ALTURA }, (_, lin) =>
+      Array.from({ length: LARGURA }, (_, col) => dentroDoCoracao(coordX(col), coordY(lin)))
+    );
+
+    const mapaBorda = Array.from({ length: ALTURA }, (_, lin) =>
+      Array.from({ length: LARGURA }, (_, col) => {
+        if (!mapaCoracao[lin][col]) return false;
+        const esq = col > 0 && !mapaCoracao[lin][col - 1];
+        const dir = col < LARGURA - 1 && !mapaCoracao[lin][col + 1];
+        const cima = lin > 0 && !mapaCoracao[lin - 1][col];
+        const baixo = lin < ALTURA - 1 && !mapaCoracao[lin + 1][col];
+        return esq || dir || cima || baixo;
+      })
+    );
 
     function renderizar(tempoAtual) {
       requestAnimationFrame(renderizar);
@@ -146,39 +161,27 @@
       if (tempoAtual - ultimoFrame < INTERVALO_MS) return;
       ultimoFrame = tempoAtual;
 
-      const cosA = Math.cos(angulo);
-      const fator3D = Math.abs(cosA) > 0.28 ? cosA : (cosA >= 0 ? 0.28 : -0.28);
-      const escalaPulso = 1.0 + 0.05 * Math.sin(pulso);
-
       const linhasHtml = new Array(ALTURA);
 
       for (let lin = 0; lin < ALTURA; lin++) {
-        const ny = coordY(lin, escalaPulso);
-        const nyCima = lin > 0 ? coordY(lin - 1, escalaPulso) : null;
-        const nyBaixo = lin < ALTURA - 1 ? coordY(lin + 1, escalaPulso) : null;
-        const deslocamento = Math.floor((angulo * 6) + (lin * 1.5));
+        // Desloca a palavra "nerd" continuamente através do coração parado
+        const deslocamento = passoFluxo + Math.floor(lin * 1.5);
 
         let linhaStr = "";
         let classeAtual = "";
 
         for (let col = 0; col < LARGURA; col++) {
-          const nx = coordX(col, escalaPulso, fator3D);
           let char = " ";
           let classe = "";
 
-          if (dentroDoCoracao(nx, ny)) {
-            const bordaEsq = col > 0 && !dentroDoCoracao(coordX(col - 1, escalaPulso, fator3D), ny);
-            const bordaDir = col < LARGURA - 1 && !dentroDoCoracao(coordX(col + 1, escalaPulso, fator3D), ny);
-            const bordaCima = nyCima !== null && !dentroDoCoracao(nx, nyCima);
-            const bordaBaixo = nyBaixo !== null && !dentroDoCoracao(nx, nyBaixo);
-
+          if (mapaCoracao[lin][col]) {
             const idxSeq = (((col + deslocamento) % TAM_SEQ) + TAM_SEQ) % TAM_SEQ;
             char = SEQUENCIA[idxSeq];
 
-            if (bordaEsq || bordaDir || bordaCima || bordaBaixo) {
-              classe = "txt-ciano";
-            } else if ((lin + col) % 7 === 0) {
-              classe = "txt-magenta";
+            if (mapaBorda[lin][col]) {
+              classe = "txt-borda";
+            } else if ((lin + col + passoFluxo) % 7 === 0) {
+              classe = "txt-escuro";
             } else {
               classe = "txt-verde";
             }
@@ -202,11 +205,10 @@
 
       telaEl.innerHTML = linhasHtml.join("\n");
 
-      const graus = String(Math.floor((angulo * 180 / Math.PI) % 360)).padStart(3, "0");
-      statusEl.lastElementChild.textContent = `Rotação: ${graus}° | Espaço: ${ESPACO.length} cols`;
+      const contador = String(passoFluxo % 1000).padStart(3, "0");
+      statusEl.lastElementChild.textContent = `Fluxo: ${contador} | Espaço: ${ESPACO.length} cols`;
 
-      angulo += 0.10;
-      pulso += 0.18;
+      passoFluxo += 1;
     }
 
     requestAnimationFrame(renderizar);
