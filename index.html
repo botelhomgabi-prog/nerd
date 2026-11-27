@@ -1,143 +1,215 @@
-import math
-import os
-import re
-import time
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cybernetic Heart // NERD_LOOP</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
 
-# Cores ANSI (Estética Cyberpunk: Ciano, Magenta, Verde Neon, Roxo e Cinza escuro)
-CIANO = '\033[38;5;51m'
-MAGENTA = '\033[38;5;201m'
-VERDE_NEON = '\033[38;5;46m'
-ROXO = '\033[38;5;93m'
-DIM = '\033[38;5;238m'
-RESET = '\033[0m'
-OCULTAR_CURSOR = '\033[?25l'
-MOSTRAR_CURSOR = '\033[?25h'
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: radial-gradient(circle at center, #090314 0%, #000000 85%);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-family: 'Courier New', Courier, monospace;
+      overflow: hidden;
+      padding: 8px;
+      user-select: none;
+    }
 
-ANSI_RE = re.compile(r'\x1b\[[0-9;]*m')
+    .hud-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      max-width: 100%;
+    }
 
-PALAVRA = "nerd"
-ESPACO = "   "  # Espaçamento entre uma palavra e outra para facilitar a leitura
-SEQUENCIA = PALAVRA + ESPACO
+    .terminal-box {
+      border: 2px solid #8a2be2;
+      box-shadow: 0 0 18px rgba(138, 43, 226, 0.35), inset 0 0 18px rgba(138, 43, 226, 0.15);
+      background: rgba(4, 2, 10, 0.94);
+      border-radius: 4px;
+      overflow: hidden;
+    }
 
-LARGURA, ALTURA = 74, 30
-angulo = 0.0
-pulso = 0.0
+    .terminal-header {
+      padding: 8px 12px;
+      border-bottom: 1px solid #8a2be2;
+      font-size: clamp(10px, 2vw, 15px);
+      font-weight: bold;
+      letter-spacing: 1px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
 
+    .txt-ciano {
+      color: #00ffff;
+      text-shadow: 0 0 8px rgba(0, 255, 255, 0.7);
+    }
 
-def tamanho_visivel(texto: str) -> int:
-    return len(ANSI_RE.sub('', texto))
+    .txt-verde {
+      color: #00ff41;
+      text-shadow: 0 0 8px rgba(0, 255, 65, 0.75);
+    }
 
+    .txt-magenta {
+      color: #ff00cc;
+      text-shadow: 0 0 8px rgba(255, 0, 204, 0.75);
+    }
 
-def dentro_do_coracao(nx: float, ny: float) -> bool:
-    """Testa se o ponto normalizado (nx, ny) está dentro da curva implícita do coração."""
-    parte_x = nx * nx
-    parte_y = ny * ny
-    return ((parte_x + parte_y - 1.0) ** 3) - (parte_x * (ny ** 3)) <= 0.0
+    .txt-dim {
+      color: #3a3a4a;
+    }
 
+    pre#tela {
+      margin: 0;
+      padding: 10px;
+      font-size: clamp(6.2px, 1.48vw, 15px);
+      line-height: 1.18;
+      letter-spacing: 1px;
+      font-weight: bold;
+      white-space: pre;
+      text-align: center;
+    }
 
-def coord_x(col: int, escala_pulso: float, fator_3d: float) -> float:
-    nx_base = ((col - LARGURA / 2.0) / (LARGURA * 0.22)) / escala_pulso
-    return nx_base / fator_3d
+    .status-bar {
+      margin-top: 8px;
+      font-size: clamp(10px, 1.5vw, 13px);
+      color: #6b6b80;
+      letter-spacing: 0.5px;
+      display: flex;
+      justify-content: space-between;
+    }
+  </style>
+</head>
+<body>
+  <main class="hud-wrapper">
+    <div class="terminal-box">
+      <header class="terminal-header">
+        <span><span class="txt-ciano">CYBERNETIC HEART // MODE:</span> <span class="txt-verde">NERD_LOOP</span></span>
+        <span class="txt-magenta">[ONLINE]</span>
+      </header>
+      <pre id="tela" aria-label="Coração cyberpunk formado pela palavra nerd"></pre>
+    </div>
+    <footer class="status-bar" id="status">
+      <span>[CYBER_TERMINAL]</span>
+      <span>Rotação: 000° | Espaço: 3 cols</span>
+    </footer>
+  </main>
 
+  <script>
+    const telaEl = document.getElementById("tela");
+    const statusEl = document.getElementById("status");
 
-def coord_y(lin: int, escala_pulso: float) -> float:
-    return ((ALTURA / 2.0 - lin) / (ALTURA * 0.36)) / escala_pulso
+    const PALAVRA = "nerd";
+    const ESPACO = "   "; // Espaçamento de 3 colunas entre as palavras
+    const SEQUENCIA = PALAVRA + ESPACO;
+    const TAM_SEQ = SEQUENCIA.length;
 
+    const LARGURA = 74;
+    const ALTURA = 30;
+    const MEIA_LARGURA = LARGURA / 2.0;
+    const MEIA_ALTURA = ALTURA / 2.0;
+    const ESCALA_X = LARGURA * 0.22;
+    const ESCALA_Y = ALTURA * 0.36;
 
-os.system('')
-os.system('cls' if os.name == 'nt' else 'clear')
-print(OCULTAR_CURSOR, end='')
+    let angulo = 0.0;
+    let pulso = 0.0;
+    let ultimoFrame = 0;
+    const INTERVALO_MS = 80; // Mesmo tempo (0.08s) do código Python
 
-try:
-    while True:
-        print('\033[H', end='')
+    function dentroDoCoracao(nx, ny) {
+      const px = nx * nx;
+      const py = ny * ny;
+      const termo = px + py - 1.0;
+      return (termo * termo * termo) - (px * ny * ny * ny) <= 0.0;
+    }
 
-        grid_char = [[' ' for _ in range(LARGURA)] for _ in range(ALTURA)]
-        grid_cor = [[RESET for _ in range(LARGURA)] for _ in range(ALTURA)]
+    function coordX(col, escalaPulso, fator3D) {
+      return ((col - MEIA_LARGURA) / ESCALA_X) / (escalaPulso * fator3D);
+    }
 
-        cos_a = math.cos(angulo)
-        fator_3d = cos_a if abs(cos_a) > 0.28 else (0.28 if cos_a >= 0 else -0.28)
-        escala_pulso = 1.0 + 0.05 * math.sin(pulso)
+    function coordY(lin, escalaPulso) {
+      return ((MEIA_ALTURA - lin) / ESCALA_Y) / escalaPulso;
+    }
 
-        for lin in range(ALTURA):
-            ny = coord_y(lin, escala_pulso)
-            deslocamento = int((angulo * 6) + (lin * 1.5))
+    function renderizar(tempoAtual) {
+      requestAnimationFrame(renderizar);
 
-            for col in range(LARGURA):
-                nx = coord_x(col, escala_pulso, fator_3d)
+      if (tempoAtual - ultimoFrame < INTERVALO_MS) return;
+      ultimoFrame = tempoAtual;
 
-                if dentro_do_coracao(nx, ny):
-                    borda_esq = col > 0 and not dentro_do_coracao(
-                        coord_x(col - 1, escala_pulso, fator_3d), ny
-                    )
-                    borda_dir = col < LARGURA - 1 and not dentro_do_coracao(
-                        coord_x(col + 1, escala_pulso, fator_3d), ny
-                    )
-                    borda_cima = lin > 0 and not dentro_do_coracao(
-                        nx, coord_y(lin - 1, escala_pulso)
-                    )
-                    borda_baixo = lin < ALTURA - 1 and not dentro_do_coracao(
-                        nx, coord_y(lin + 1, escala_pulso)
-                    )
+      const cosA = Math.cos(angulo);
+      const fator3D = Math.abs(cosA) > 0.28 ? cosA : (cosA >= 0 ? 0.28 : -0.28);
+      const escalaPulso = 1.0 + 0.05 * Math.sin(pulso);
 
-                    eh_borda = borda_esq or borda_dir or borda_cima or borda_baixo
+      const linhasHtml = new Array(ALTURA);
 
-                    idx_seq = (col + deslocamento) % len(SEQUENCIA)
-                    char_atual = SEQUENCIA[idx_seq]
+      for (let lin = 0; lin < ALTURA; lin++) {
+        const ny = coordY(lin, escalaPulso);
+        const nyCima = lin > 0 ? coordY(lin - 1, escalaPulso) : null;
+        const nyBaixo = lin < ALTURA - 1 ? coordY(lin + 1, escalaPulso) : null;
+        const deslocamento = Math.floor((angulo * 6) + (lin * 1.5));
 
-                    if eh_borda:
-                        cor_atual = CIANO
-                    elif (lin + col) % 7 == 0:
-                        cor_atual = MAGENTA
-                    else:
-                        cor_atual = VERDE_NEON
+        let linhaStr = "";
+        let classeAtual = "";
 
-                    grid_char[lin][col] = char_atual
-                    grid_cor[lin][col] = cor_atual
-                elif lin % 6 == 0 and col % 12 == 0:
-                    grid_char[lin][col] = '·'
-                    grid_cor[lin][col] = DIM
+        for (let col = 0; col < LARGURA; col++) {
+          const nx = coordX(col, escalaPulso, fator3D);
+          let char = " ";
+          let classe = "";
 
-        largura_interna = LARGURA + 1
-        topo = f"{ROXO}╔{'═' * (LARGURA + 2)}╗{RESET}"
+          if (dentroDoCoracao(nx, ny)) {
+            const bordaEsq = col > 0 && !dentroDoCoracao(coordX(col - 1, escalaPulso, fator3D), ny);
+            const bordaDir = col < LARGURA - 1 && !dentroDoCoracao(coordX(col + 1, escalaPulso, fator3D), ny);
+            const bordaCima = nyCima !== null && !dentroDoCoracao(nx, nyCima);
+            const bordaBaixo = nyBaixo !== null && !dentroDoCoracao(nx, nyBaixo);
 
-        conteudo_titulo = f" {CIANO}CYBERNETIC HEART // MODE: {VERDE_NEON}{PALAVRA.upper()}_LOOP{RESET}"
-        espacos_dir = max(0, largura_interna - tamanho_visivel(conteudo_titulo))
-        titulo = f"{ROXO}║{RESET}{conteudo_titulo}{' ' * espacos_dir} {ROXO}║{RESET}"
+            const idxSeq = (((col + deslocamento) % TAM_SEQ) + TAM_SEQ) % TAM_SEQ;
+            char = SEQUENCIA[idxSeq];
 
-        separador = f"{ROXO}╠{'─' * (LARGURA + 2)}╣{RESET}"
-        linhas_renderizadas = [topo, titulo, separador]
+            if (bordaEsq || bordaDir || bordaCima || bordaBaixo) {
+              classe = "txt-ciano";
+            } else if ((lin + col) % 7 === 0) {
+              classe = "txt-magenta";
+            } else {
+              classe = "txt-verde";
+            }
+          } else if (lin % 6 === 0 && col % 12 === 0) {
+            char = "·";
+            classe = "txt-dim";
+          }
 
-        for lin in range(ALTURA):
-            linha_str = f"{ROXO}║{RESET} "
-            cor_anterior = None
-            for col in range(LARGURA):
-                c = grid_char[lin][col]
-                cor = grid_cor[lin][col]
-                if cor != cor_anterior:
-                    linha_str += cor
-                    cor_anterior = cor
-                linha_str += c
-            linha_str += f"{RESET} {ROXO}║{RESET}"
-            linhas_renderizadas.append(linha_str)
+          if (classe !== classeAtual) {
+            if (classeAtual !== "") linhaStr += "</span>";
+            if (classe !== "") linhaStr += `<span class="${classe}">`;
+            classeAtual = classe;
+          }
 
-        rodape = f"{ROXO}╚{'═' * (LARGURA + 2)}╝{RESET}"
-        graus = int(math.degrees(angulo) % 360)
-        base_info = (
-            f"{DIM} [CTRL+C] Encerrar  |  Rotação: {graus:03d}°  |  "
-            f"Espaço: {len(ESPACO)} cols{RESET}"
-        )
+          linhaStr += char;
+        }
 
-        linhas_renderizadas.append(rodape)
-        linhas_renderizadas.append(base_info)
+        if (classeAtual !== "") linhaStr += "</span>";
+        linhasHtml[lin] = linhaStr;
+      }
 
-        print('\n'.join(linhas_renderizadas))
+      telaEl.innerHTML = linhasHtml.join("\n");
 
-        angulo += 0.10
-        pulso += 0.18
-        time.sleep(0.08)
+      const graus = String(Math.floor((angulo * 180 / Math.PI) % 360)).padStart(3, "0");
+      statusEl.lastElementChild.textContent = `Rotação: ${graus}° | Espaço: ${ESPACO.length} cols`;
 
-except KeyboardInterrupt:
-    print(f"\n{RESET}Animação encerrada!")
-finally:
-    print(f"{MOSTRAR_CURSOR}{RESET}", end='')
+      angulo += 0.10;
+      pulso += 0.18;
+    }
+
+    requestAnimationFrame(renderizar);
+  </script>
+</body>
+</html>
